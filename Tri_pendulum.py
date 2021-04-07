@@ -363,7 +363,7 @@ class Tri_Pendulum:
 if __name__=="__main__":  
     print("Running") 
     #If this program is run as __main__, generate an animation of 5 triple pendula released from similar initial conditions
-    NUM_ANGS=2
+    NUM_ANGS=5
     TF=10
     DT=0.001
     lyap=[]
