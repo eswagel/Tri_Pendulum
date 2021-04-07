@@ -7,7 +7,7 @@ from numba import jit,njit
 from perform_sympy import L,g,M
 import dill
 
-#Load the picked jitted functions for computing the second derivatives generated with SymPy in perform_sympy.py
+#Load the picked functions for computing the second derivatives generated with SymPy in perform_sympy.py
 compute_theta1=dill.load(open("compute_theta1.pkl","rb"))
 compute_theta2=dill.load(open("compute_theta2.pkl","rb"))
 compute_theta3=dill.load(open("compute_theta3.pkl","rb"))
