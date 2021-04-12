@@ -7,7 +7,7 @@ if __name__=="__main__":
         
     import sympy as sym
     from sympy.abc import t
-    from numba import jit
+    from numba import njit
     import dill
     #Required for saving
     dill.settings["recurse"]=True
@@ -57,9 +57,9 @@ if __name__=="__main__":
     solution=sym.simplify(sym.solve(equations, variables))
     
     #Now turn the solution for each second derivative into a function of the angle and angular velocity
-    compute_theta1=(sym.lambdify([theta1,theta2,theta3,theta1_dot,theta2_dot,theta3_dot],solution[theta1_dot_2]))
-    compute_theta2=(sym.lambdify([theta1,theta2,theta3,theta1_dot,theta2_dot,theta3_dot],solution[theta2_dot_2]))
-    compute_theta3=(sym.lambdify([theta1,theta2,theta3,theta1_dot,theta2_dot,theta3_dot],solution[theta3_dot_2]))
+    compute_theta1=njit(sym.lambdify([theta1,theta2,theta3,theta1_dot,theta2_dot,theta3_dot],solution[theta1_dot_2]))
+    compute_theta2=njit(sym.lambdify([theta1,theta2,theta3,theta1_dot,theta2_dot,theta3_dot],solution[theta2_dot_2]))
+    compute_theta3=njit(sym.lambdify([theta1,theta2,theta3,theta1_dot,theta2_dot,theta3_dot],solution[theta3_dot_2]))
     
     #Dill the functions
     dill.dump(compute_theta1,open("compute_theta1.pkl","wb"))
