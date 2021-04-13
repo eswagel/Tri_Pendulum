@@ -71,7 +71,7 @@ class Tri_Pendulum:
         self.dt=dt
         
         #Number of integration points
-        self.npoints=int(tf/dt)
+        self.npoints=abs(int(tf/dt))
         #Times
         self.tarray = np.linspace(0.0, tf,self.npoints, endpoint = True)
         #Initial phase point (first three elements are the angle, last three are the angular velocity)
@@ -165,14 +165,14 @@ class Tri_Pendulum:
             new_p=Tri_Pendulum(theta0=self.theta0+epsilon[:3],tf=self.tf,dt=self.dt,w0=self.w0+epsilon[3:],m=self.m,l=self.l,g=self.g)
             new_p.scipy_trajectory()
             #Calculate the euclidean distance between the trajectories in phase space
-            d=new_p.tw_unwrap[1:]-self.tw_unwrap[1:new_p.npoints]
+            d=new_p.tw[1:]-self.tw[1:new_p.npoints]
             #Calculate the logarithm of the ratio between the distance and the initial perturbation
             diver=np.log(np.linalg.norm(d,axis=1)/h)
             #Add the linear fit coefficient to the average
             avg_lambda+=np.linalg.lstsq(new_p.tarray[1:,np.newaxis],diver,rcond=None)[0][0]
         print(avg_lambda/n)
         return avg_lambda/n
-    def local_lyapunov_trajectory(self,n=20,h=1e-10,T=0.001,dt=None,tau=None):
+    def local_lyapunov_trajectory(self,n=20,h=1e-10,T=0.001,tau=None):
         """Calculate the LLE along the entire trajectory.
         Parameters:
         n: int
@@ -181,31 +181,28 @@ class Tri_Pendulum:
             - Magnitude of initial perturbation
         T: float
             - Time between calculating each LLE
-        dt: float
-            - Integration step for LLE calculation
         tau: float
             - Length of time used for LLE calculation
         """
-        if dt is None:
-            dt=self.dt
+        dt=self.dt
         if tau is None:
             tau=T
         lyap=[]
         #Number of points for which calculating the LLE
-        s=int(tau/self.dt)
+        s=int(self.tf/tau)
         for i in range(self.npoints//s):
-            lle=0
-            for j in range(n):
-                epsilon=np.random.normal(size=6)
-                epsilon=epsilon/np.sqrt(np.dot(epsilon,epsilon))*h
-                new_p=Tri_Pendulum(theta0=self.tw_unwrap[(s)*i,:3]+epsilon[:3],w0=self.tw_unwrap[(s)*i,3:]+epsilon[3:],tf=T,dt=dt,m=self.m,l=self.l,g=self.g,run_scipy=True)
-                d=new_p.tw_unwrap[1:]-self.tw_unwrap[1:new_p.npoints]
-                diver=np.log(np.linalg.norm(d,axis=1)/h)
-                lle+=np.linalg.lstsq(new_p.tarray[1:,np.newaxis],diver,rcond=None)[0][0]
-            lyap+=[lle/n]
+            epsilon=np.random.normal(size=6)
+            epsilon=epsilon/np.sqrt(np.dot(epsilon,epsilon))*h
+            int_back=Tri_Pendulum(theta0=self.tw[s*i,:3],w0=self.tw[s*i,3:],tf=-300e-3,dt=dt,m=self.m,l=self.l,g=self.g,run_scipy=True)
+            int_forward=Tri_Pendulum(theta0=int_back.tw[-1,:3]+epsilon[:3],w0=int_back.tw[-1,3:]+epsilon[3:],tf=300e-3,dt=dt,m=self.m,l=self.l,g=self.g,run_scipy=True)
+            epsilon=int_forward.tw[-1]-self.tw[s*i]
+            epsilon=epsilon/np.sqrt(np.dot(epsilon,epsilon))*h
+            new_p=Tri_Pendulum(theta0=self.tw_unwrap[(s)*i,:3]+epsilon[:3],w0=self.tw_unwrap[(s)*i,3:]+epsilon[3:],tf=T,dt=dt,m=self.m,l=self.l,g=self.g,run_scipy=True)
+            d=new_p.tw[-1]-self.tw[int(s*i+new_p.npoints-1)]
+            lyap+=[np.log(np.sqrt(np.dot(d,d))/h)]
         return np.array(lyap)
                 
-    def max_lyapunov(self,s=50,h=1e-10,plot_convergence=False):
+    def max_lyapunov(self,s=100,h=1e-10,plot_convergence=False):
         """Calculate the MLE.
         s: int
             - Number of time-steps before renormalization
@@ -220,7 +217,7 @@ class Tri_Pendulum:
         
         #Slightly repetitive code
         #Divergence at renormalization
-        d0_tau=(perturbed.tw_unwrap[s-1]-self.tw_unwrap[s-1])
+        d0_tau=(perturbed.tw[s-1]-self.tw[s-1])
         mag_d0_tau=np.sqrt(np.dot(d0_tau,d0_tau))
         #Renormalized divergence to begin next integration
         di_0=d0_tau/mag_d0_tau*h
@@ -231,7 +228,7 @@ class Tri_Pendulum:
         for i in range(1,self.npoints//s):
             perturbed=Tri_Pendulum(theta0=self.tw_unwrap[(s)*i,:3]+di_0[:3],w0=self.tw_unwrap[(s)*i,3:]+di_0[3:],tf=s*self.dt,dt=self.dt,m=self.m,l=self.l,g=self.g,run_scipy=True)
             #Divergence at renormalization
-            di_tau=perturbed.tw_unwrap[-1]-self.tw_unwrap[(s)*(i+1)-1]
+            di_tau=perturbed.tw[-1]-self.tw[(s)*(i+1)-1]
             mag_di_tau=np.sqrt(np.dot(di_tau,di_tau))
             di_0=di_tau/mag_di_tau*h
             #Value of lambda for this normalization is the logarithm of the magnitude of the divergence after s steps
@@ -264,7 +261,7 @@ class Tri_Pendulum:
             di_tau=np.empty((6,6))
             for j in range(6):
                 perturbed=Tri_Pendulum(theta0=self.tw_unwrap[(s)*i,:3]+di_0[j,:3],w0=self.tw_unwrap[(s)*i,3:]+di_0[j,3:],tf=s*self.dt,dt=self.dt,m=self.m,l=self.l,g=self.g,run_scipy=True)
-                di_tau[j]=perturbed.tw_unwrap[-1]-self.tw_unwrap[(s)*(i+1)-1]
+                di_tau[j]=perturbed.tw[-1]-self.tw[(s)*(i+1)-1]
             di_0,mag_di_tau=gram_schmidt(di_tau)
             di_0*=h
             val=np.log(np.cumprod(mag_di_tau/h))
@@ -363,7 +360,7 @@ class Tri_Pendulum:
 if __name__=="__main__":  
     print("Running") 
     #If this program is run as __main__, generate an animation of 5 triple pendula released from similar initial conditions
-    NUM_ANGS=5
+    NUM_ANGS=2
     TF=10
     DT=0.001
     lyap=[]
